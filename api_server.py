@@ -26,10 +26,11 @@ Connection:
 To run:
     python api_server.py
     
-Or use the convenience script:
+Or use the convenience scripts:
     start_api.bat (Windows)
+    start_backend.sh (macOS/Linux)
     
-The script automatically activates venv_spacy if available.
+The scripts automatically activate the virtual environment if available.
 
 Author: Research Brain Team
 Last Updated: 2025-01-15
@@ -552,6 +553,55 @@ async def upload_file_endpoint(files: List[UploadFile] = File(...)):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error uploading files: {error_msg}")
+
+@app.post("/api/process")
+async def process_documents_endpoint(request: Dict[str, Any]):
+    """Process already uploaded documents by their IDs
+    
+    Note: This endpoint is for re-processing existing documents.
+    For new uploads, use /api/knowledge/upload which uploads and processes in one step.
+    """
+    try:
+        document_ids = request.get("document_ids", [])
+        if not document_ids:
+            raise HTTPException(status_code=400, detail="No document IDs provided")
+        
+        # Get documents from store
+        from documents_store import get_all_documents, get_document_by_id
+        all_docs = get_all_documents()
+        
+        # Find documents to process
+        docs_to_process = []
+        for doc_id in document_ids:
+            doc = get_document_by_id(doc_id) if hasattr(get_all_documents, '__call__') else None
+            if not doc:
+                # Try to find by ID in all docs
+                doc = next((d for d in all_docs if d.get('id') == doc_id), None)
+            if doc:
+                docs_to_process.append(doc)
+        
+        if not docs_to_process:
+            return {
+                "message": "No documents found with provided IDs",
+                "status": "error",
+                "documents_processed": 0
+            }
+        
+        # Note: Re-processing requires the original files, which may not be available
+        # This endpoint mainly exists for API compatibility
+        # In practice, users should re-upload files to process them
+        return {
+            "message": f"Found {len(docs_to_process)} document(s). Re-processing requires re-uploading the files. Please use /api/knowledge/upload to upload and process files.",
+            "status": "info",
+            "documents_found": len(docs_to_process),
+            "documents_processed": 0
+        }
+    except Exception as e:
+        error_msg = str(e)
+        print(f"❌ Error processing documents: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error processing documents: {error_msg}")
 
 @app.get("/api/knowledge/graph")
 async def get_graph_endpoint():
@@ -1137,22 +1187,33 @@ async def save_knowledge_endpoint():
 if __name__ == "__main__":
     import uvicorn
     
-    # Get port from environment or default to 8001 (to avoid conflicts)
+    # Get port from environment or default to 8001 (frontend expects this port)
     port = int(os.getenv("API_PORT", 8001))
     host = os.getenv("API_HOST", "0.0.0.0")  # Bind to all interfaces for external access
     
-    # Try to find an available port
+    # Check if the requested port is available, if not try alternatives
     import socket
-    for attempt_port in [port, 8000, 8001, 8002, 8003]:
+    def is_port_available(check_port):
+        """Check if a port is available by trying to bind to it"""
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = sock.connect_ex(('127.0.0.1', attempt_port))
-        sock.close()
-        if result != 0:  # Port is available
-            port = attempt_port
-            break
-    else:
-        print("⚠️  Warning: Could not find available port, trying 8001 anyway")
-        port = 8001
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind(('127.0.0.1', check_port))
+            sock.close()
+            return True
+        except OSError:
+            return False
+    
+    # Try the requested port first, then alternatives if needed
+    if not is_port_available(port):
+        print(f"⚠️  Port {port} is busy, trying alternatives...")
+        for attempt_port in [8001, 8002, 8003, 8004]:
+            if attempt_port != port and is_port_available(attempt_port):
+                port = attempt_port
+                print(f"✅ Using port {port} instead")
+                break
+        else:
+            print(f"⚠️  Warning: Could not find available port, using {port} anyway (may fail if busy)")
     
     print(f"Starting NesyX API server on http://{host}:{port}")
     print(f"API documentation available at http://localhost:{port}/docs")

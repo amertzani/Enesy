@@ -48,3 +48,33 @@ This app uses Hugging Face OAuth (`hf_oauth: true`) to automatically authenticat
 - **DOCX**: Word documents, articles
 - **TXT**: Plain text files, notes
 - **CSV**: Data files, spreadsheets
+
+## Local Development & Deployment
+
+### macOS Deployment
+
+For running the application locally on macOS:
+
+1. **Quick Start**: See `QUICKSTART_MACOS.md` for a 5-minute setup guide
+2. **Detailed Guide**: See `DEPLOYMENT_MACOS.md` for comprehensive instructions
+
+**Quick commands:**
+```bash
+# Setup (one-time)
+./setup_macos.sh
+cd RandDKnowledgeGraph && npm install && cd ..
+
+# Run application
+./start_all.sh
+```
+
+The application will be available at:
+- Frontend: http://localhost:5006
+- Backend API: http://localhost:8001
+- API Documentation: http://localhost:8001/docs
+
+### Windows Deployment
+
+For Windows, use the provided batch files:
+- `start_api.bat` - Start Python backend
+- Or follow similar setup steps using PowerShell/Command Prompt

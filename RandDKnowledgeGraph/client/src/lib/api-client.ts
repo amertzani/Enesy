@@ -1,14 +1,13 @@
 /**
  * API Client for Local FastAPI Backend Integration
- * Updated to work with local backend at http://192.168.1.92:8000
  *
  * This file contains all the API calls to your local FastAPI backend.
- * The backend runs on your local machine at http://192.168.1.92:8000
+ * The backend runs on port 8001 by default (configurable via API_PORT env var).
  */
 
 // Local backend URL - your FastAPI server
-// Try localhost first, fallback to IP if needed
-// Backend will try ports 8001, 8000, 8002, 8003 if 8001 is busy
+// Defaults to port 8001 (backend uses this port by default)
+// Override with VITE_API_URL environment variable if needed
 const BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:8001";
 
@@ -151,10 +150,11 @@ class HuggingFaceApiClient {
   private async request<T>(
     endpoint: string,
     options: RequestInit = {},
+    timeoutMs: number = 90000, // Default 90 seconds
   ): Promise<ApiResponse<T>> {
     try {
       const url = `${this.baseUrl}${endpoint}`;
-      console.log(`📡 API Request: ${options.method || 'GET'} ${url}`);
+      console.log(`📡 API Request: ${options.method || 'GET'} ${url} (timeout: ${timeoutMs}ms)`);
       
       // Don't override Content-Type if it's FormData (for file uploads)
       const headers: Record<string, string> = {
@@ -167,7 +167,7 @@ class HuggingFaceApiClient {
 
       // Create timeout controller (AbortSignal.timeout might not be available in all browsers)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout for LLM requests
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       
       const fetchOptions: RequestInit = {
         ...options,
@@ -216,19 +216,25 @@ class HuggingFaceApiClient {
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));
 
+    // Calculate timeout based on file size (5 minutes base + 1 minute per MB)
+    const totalSizeMB = files.reduce((sum, file) => sum + file.size, 0) / (1024 * 1024);
+    const timeoutMs = Math.max(300000, 300000 + totalSizeMB * 60000); // Min 5 min, +1 min per MB
+    console.log(`📤 Uploading ${files.length} file(s), total ${totalSizeMB.toFixed(2)}MB, timeout: ${(timeoutMs/1000).toFixed(0)}s`);
+
     return this.request("/api/knowledge/upload", {
       method: "POST",
       body: formData,
       headers: {}, // Let browser set Content-Type for FormData
-    });
+    }, timeoutMs);
   }
 
   // Process Documents
   async processDocuments(documentIds: string[]): Promise<ApiResponse<any>> {
+    // Processing can take a long time for large documents - use 10 minute timeout
     return this.request("/api/process", {
       method: "POST",
       body: JSON.stringify({ document_ids: documentIds }),
-    });
+    }, 600000); // 10 minutes for document processing
   }
 
   // Knowledge Base - Updated for FastAPI
@@ -466,8 +472,12 @@ class HuggingFaceApiClient {
   }
 
   // Import/Export
-  async exportKnowledgeBase(): Promise<ApiResponse<any>> {
-    return this.request("/api/export", {
+  async exportKnowledgeBase(includeInferred: boolean = true, minConfidence: number = 0.0): Promise<ApiResponse<any>> {
+    const params = new URLSearchParams({
+      include_inferred: includeInferred.toString(),
+      min_confidence: minConfidence.toString(),
+    });
+    return this.request(`/api/export?${params.toString()}`, {
       method: "GET",
     });
   }

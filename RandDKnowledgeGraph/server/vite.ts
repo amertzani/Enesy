@@ -40,6 +40,16 @@ export async function setupVite(app: Express, server: Server) {
     appType: "custom",
   });
 
+  // Add no-cache headers for favicon and logo files
+  app.use((req, res, next) => {
+    if (req.path.match(/\.(jpeg|jpg|png|ico)$/i) || req.path.includes('logo') || req.path.includes('favicon')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    next();
+  });
+
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;

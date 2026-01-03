@@ -35,6 +35,11 @@ export default defineConfig({
     fs: {
       strict: true,
       deny: ["**/.*"],
+      // Allow access to node_modules in the project root (parent of client directory)
+      allow: [import.meta.dirname],
+    },
+    headers: {
+      "Cache-Control": "no-cache, no-store, must-revalidate",
     },
   },
 });

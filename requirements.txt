@@ -7,7 +7,7 @@ pandas
 networkx
 matplotlib
 plotly
-numpy
+numpy<2.0  # NumPy 2.x incompatible with spaCy/thinc/torch compiled with NumPy 1.x
 fastapi
 uvicorn[standard]
 pydantic

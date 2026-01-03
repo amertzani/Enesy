@@ -20,6 +20,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { useLocation } from "wouter";
+import logoC from "@/assets/logo_C.jpeg";
 
 const menuItems = [
   {
@@ -66,7 +67,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground overflow-hidden">
             <img 
-              src="/logo_G.jpeg" 
+              src={logoC}
               alt="Research Brain Logo" 
               className="h-full w-full object-cover"
             />
@@ -126,8 +127,8 @@ export function AppSidebar() {
         </SidebarMenu>
         <div className="mt-4 pt-4 border-t flex justify-center">
           <img 
-            src="/logo_GNOSES.jpeg" 
-            alt="GNOSES Logo" 
+            src="/logo_all.jpeg" 
+            alt="Logo" 
             className="h-8 w-auto opacity-60 hover:opacity-100 transition-opacity"
           />
         </div>

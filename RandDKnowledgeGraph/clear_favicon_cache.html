@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Favicon Cache</title>
+</head>
+<body>
+    <h1>Favicon Cache Clearer</h1>
+    <p>Open this page, then open your browser console (F12) and run the script below:</p>
+    <pre id="script"></pre>
+    <button onclick="clearFavicon()">Clear Favicon Cache</button>
+    <script>
+        function clearFavicon() {
+            // Remove all existing favicon links
+            const existingFavicons = document.querySelectorAll('link[rel*="icon"]');
+            existingFavicons.forEach(link => {
+                console.log('Removing:', link.href);
+                link.remove();
+            });
+            
+            // Wait a bit
+            setTimeout(() => {
+                // Add new favicon with fresh timestamp
+                const timestamp = Date.now();
+                const faviconPath = '/logo_C.jpeg';
+                
+                const favicon32 = document.createElement('link');
+                favicon32.rel = 'icon';
+                favicon32.type = 'image/jpeg';
+                favicon32.sizes = '32x32';
+                favicon32.href = `${faviconPath}?t=${timestamp}`;
+                document.head.appendChild(favicon32);
+                
+                const favicon16 = document.createElement('link');
+                favicon16.rel = 'icon';
+                favicon16.type = 'image/jpeg';
+                favicon16.sizes = '16x16';
+                favicon16.href = `${faviconPath}?t=${timestamp}`;
+                document.head.appendChild(favicon16);
+                
+                const shortcutIcon = document.createElement('link');
+                shortcutIcon.rel = 'shortcut icon';
+                shortcutIcon.href = `${faviconPath}?t=${timestamp}`;
+                document.head.appendChild(shortcutIcon);
+                
+                console.log('✅ New favicon added with timestamp:', timestamp);
+                console.log('Now close this tab and hard refresh your main app tab (Cmd+Shift+R)');
+            }, 100);
+        }
+        
+        // Show the script
+        document.getElementById('script').textContent = `
+// Run this in console on your main app page:
+
+// Step 1: Remove all favicons
+document.querySelectorAll('link[rel*="icon"]').forEach(l => l.remove());
+
+// Step 2: Add new one
+const link = document.createElement('link');
+link.rel = 'icon';
+link.type = 'image/jpeg';
+link.href = '/logo_C.jpeg?t=' + Date.now();
+document.head.appendChild(link);
+
+// Step 3: Force reload
+const img = new Image();
+img.onload = () => {
+    console.log('Favicon loaded!');
+    setTimeout(() => location.reload(), 500);
+};
+img.src = '/logo_C.jpeg?t=' + Date.now();
+        `;
+    </script>
+</body>
+</html>
+

@@ -68,44 +68,24 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  // Check multiple ways to detect development mode
-  // Trim whitespace to handle trailing spaces
-  const nodeEnv = process.env.NODE_ENV ? process.env.NODE_ENV.trim() : null;
-  const appEnv = app.get("env") ? String(app.get("env")).trim() : null;
-  // Default to development if not explicitly set to production
-  const isDevelopment = !nodeEnv || nodeEnv === "development" || appEnv === "development" || (!nodeEnv && !appEnv);
-  
-  console.log("Development check:", { nodeEnv, appEnv, isDevelopment });
-  
-  if (isDevelopment) {
-    console.log("Setting up Vite dev server...");
-    await setupVite(app, server);
-  } else {
-    console.log("Serving static files...");
-    serveStatic(app);
-  }
-
   // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5005 if not specified.
+  // Other ports are firewalled. Default to 5006 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  let port = parseInt(process.env.PORT || '5005', 10);
+  let port = parseInt(process.env.PORT || '5006', 10);
 
   // Try to find an available port if the default is busy
   const findAvailablePort = (startPort: number): Promise<number> => {
     return new Promise((resolve, reject) => {
-      const server = net.createServer();
-      server.listen(startPort, () => {
-        const address = server.address();
+      const testServer = net.createServer();
+      testServer.listen(startPort, () => {
+        const address = testServer.address();
         const foundPort = (address && typeof address === 'object' && 'port' in address) 
           ? address.port 
           : startPort;
-        server.close(() => resolve(foundPort));
+        testServer.close(() => resolve(foundPort));
       });
-      server.on('error', (err: any) => {
+      testServer.on('error', (err: any) => {
         if (err.code === 'EADDRINUSE') {
           // Try next port
           findAvailablePort(startPort + 1).then(resolve).catch(reject);
@@ -121,18 +101,55 @@ app.use((req, res, next) => {
   const host = '0.0.0.0';
 
   try {
-    // Try to find available port
+    // Try to find available port BEFORE setting up Vite and starting the server
     try {
+      const requestedPort = port;
       port = await findAvailablePort(port);
-      if (port !== parseInt(process.env.PORT || '5005', 10)) {
-        console.log(`⚠️  Port ${process.env.PORT || '5005'} was busy, using port ${port} instead`);
+      if (port !== requestedPort) {
+        console.log(`⚠️  Port ${requestedPort} was busy, using port ${port} instead`);
       }
     } catch (err) {
-      console.error('⚠️  Could not find available port, using default:', err);
+      console.error('⚠️  Could not find available port, trying default:', err);
+      // Continue with default port - server.listen will handle the error
     }
 
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    // Check multiple ways to detect development mode
+    // Trim whitespace to handle trailing spaces
+    const nodeEnv = process.env.NODE_ENV ? process.env.NODE_ENV.trim() : null;
+    const appEnv = app.get("env") ? String(app.get("env")).trim() : null;
+    // Default to development if not explicitly set to production
+    const isDevelopment = !nodeEnv || nodeEnv === "development" || appEnv === "development" || (!nodeEnv && !appEnv);
+    
+    console.log("Development check:", { nodeEnv, appEnv, isDevelopment });
+    
+    if (isDevelopment) {
+      console.log("Setting up Vite dev server...");
+      await setupVite(app, server);
+    } else {
+      console.log("Serving static files...");
+      serveStatic(app);
+    }
+
+    // Start server with error handling for port conflicts
     server.listen({ port, host }, () => {
       log(`✅ Server running at http://localhost:${port}`);
+    });
+    
+    server.on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${port} is already in use.`);
+        console.error(`💡 Try one of these solutions:`);
+        console.error(`   1. Kill the process using port ${port}: lsof -ti:${port} | xargs kill -9`);
+        console.error(`   2. Use a different port: PORT=5006 npm run dev`);
+        console.error(`   3. The server should auto-detect an available port, but it failed.`);
+        process.exit(1);
+      } else {
+        console.error('❌ Failed to start server:', err);
+        process.exit(1);
+      }
     });
   } catch (err: any) {
     console.error('❌ Failed to start server:', err);
